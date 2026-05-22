@@ -1,0 +1,3 @@
+[submodule "packages/foliate-js"]
+	path = packages/foliate-js
+	url = https://github.com/archiseino/foliate-js.git
