@@ -41,4 +41,4 @@ yarn-error.log*
 next-env.d.ts
 
 # vendor (copied from packages/foliate-js/node_modules/pdfjs-dist)
-/public/vendor/
+/public/vendor/*
