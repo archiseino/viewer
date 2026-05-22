@@ -1,6 +1,4 @@
-@import "tailwindcss";
-
-@plugin "tailwindcss-animate";
+@import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant sepia (&:is(.sepia *));
@@ -100,10 +98,11 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--border);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: system-ui, sans-serif;
   }
 }

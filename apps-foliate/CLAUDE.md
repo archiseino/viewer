@@ -92,7 +92,7 @@ src/
 - **FoliateView** declared globally via `declare global` in `src/types/FoliateView.ts` — import `@/types/FoliateView` once per file
 - **Theme injection**: CSS is injected via `<style id="foliate-theme">` inside each EPUB iframe document (light-DOM CSS vars don't cross iframe boundaries)
 - **Progress**: debounced at 1s, `range` stripped before serialization (DOM refs can't serialize), `fraction` is the universal cross-format key (EPUB + PDF)
-- **Styling**: Tailwind v4 with `@import "tailwindcss"`, no PostCSS config needed (Turbopack handles it natively)
+- **Styling**: Tailwind v4 with `@import "tailwindcss"`. Requires `postcss.config.mjs` registering `@tailwindcss/postcss` — Turbopack still needs the PostCSS plugin config to process Tailwind directives.
 
 ## Key patterns
 
@@ -104,5 +104,5 @@ src/
 
 ## Conventions
 
-- `postcss.config.mjs` is NOT needed — deleted. Tailwind v4 + Turbopack.
+- `postcss.config.mjs` IS required — registers `@tailwindcss/postcss` plugin. Without it, `@import 'tailwindcss'` won't generate any utility classes.
 - `.npmrc` at root with `shamefully-hoist=true` and `node-linker=hoisted` — required for pnpm monorepo native deps (sharp, etc.)
