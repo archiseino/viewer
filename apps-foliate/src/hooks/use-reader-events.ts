@@ -25,11 +25,15 @@ function attachSelectionListener(
     if (!iframe) return
     const iframeRect = iframe.getBoundingClientRect()
 
+    // Account for CSS transform scale on the iframe (used by FixedLayout for PDF zoom)
+    const scaleX = iframeRect.width / iframe.clientWidth
+    const scaleY = iframeRect.height / iframe.clientHeight
+
     const viewportRects = rects.map(r => new DOMRect(
-      r.x + iframeRect.left,
-      r.y + iframeRect.top,
-      r.width,
-      r.height
+      r.x * scaleX + iframeRect.left,
+      r.y * scaleY + iframeRect.top,
+      r.width * scaleX,
+      r.height * scaleY
     ))
 
     const minX = Math.min(...viewportRects.map(r => r.x))
