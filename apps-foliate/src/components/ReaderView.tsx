@@ -36,7 +36,7 @@ export function ReaderView({
     }))
   )
 
-  useReaderEvents(viewRef.current, onRelocate, onAnnotation, onTextSelection)
+  useReaderEvents(onRelocate, onAnnotation, onTextSelection)
 
   useEffect(() => {
     let view: FoliateView | null = null

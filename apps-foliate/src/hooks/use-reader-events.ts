@@ -51,11 +51,11 @@ function attachSelectionListener(
 }
 
 export function useReaderEvents(
-  view: FoliateView | null,
   onRelocate?: (loc: unknown) => void,
   onAnnotation?: (type: string, detail: unknown) => void,
   onTextSelection?: (state: { text: string; rects: DOMRect[]; bounds: DOMRect; cfi?: string } | null) => void,
 ) {
+  const view = useReaderStore((s) => s.viewRef)
   const setLocation = useReaderStore((s) => s.setLocation)
   const setToc = useReaderStore((s) => s.setToc)
   const settings = useSettingsStore(
@@ -89,19 +89,9 @@ export function useReaderEvents(
       onAnnotation?.('show', e.detail)
     }
 
-    const handleDrawAnnotation = (e: CustomEvent) => {
-      onAnnotation?.('draw', e.detail)
-    }
-
-    const handleCreateOverlay = (e: CustomEvent) => {
-      onAnnotation?.('create-overlay', e.detail)
-    }
-
     view.addEventListener('relocate', handleRelocate as EventListener)
     view.addEventListener('load', handleLoad as EventListener)
     view.addEventListener('show-annotation', handleShowAnnotation as EventListener)
-    view.addEventListener('draw-annotation', handleDrawAnnotation as EventListener)
-    view.addEventListener('create-overlay', handleCreateOverlay as EventListener)
 
     if (view.book?.toc) setToc(view.book.toc)
 
@@ -114,8 +104,6 @@ export function useReaderEvents(
       view.removeEventListener('relocate', handleRelocate as EventListener)
       view.removeEventListener('load', handleLoad as EventListener)
       view.removeEventListener('show-annotation', handleShowAnnotation as EventListener)
-      view.removeEventListener('draw-annotation', handleDrawAnnotation as EventListener)
-      view.removeEventListener('create-overlay', handleCreateOverlay as EventListener)
     }
   }, [view, settings, onAnnotation, onTextSelection])
 }

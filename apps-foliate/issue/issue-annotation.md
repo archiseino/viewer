@@ -26,8 +26,9 @@ User picks highlight type + color
 ---
 
 ** Issue to Reproduce **
-So it seems there's still some issue left to resolve, first the ToC are not scrollable, hence mean I can't store the ToC
-As well the Annotation Table are not persistance?
+So it seems for the Overlayer that supposed to have the effect on text like Highlight, color, underline, strikethrough and etc, are not displayed in Epub, but it's somewhat being push into annotation, just not have the styles of annotation.
+
+Also does it possible to have the annotaion pop up when we load the docs, because it require navigate the content from ToC to activate the pop up
 
 ## Dependency Graph
 

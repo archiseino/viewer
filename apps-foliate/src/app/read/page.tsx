@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { Overlayer } from 'foliate-js/overlayer.js'
 import { ReaderView } from '@/components/ReaderView'
 import { ReaderSidebar } from '@/components/ReaderSidebar'
 import { SettingsPanel } from '@/components/SettingsPanel'
@@ -11,10 +12,19 @@ import { useProgress } from '@/hooks/use-progress'
 import { useAnnotations } from '@/hooks/use-annotations'
 import { createBookId } from '@/store/annotation-store'
 import type { AnnotationType } from '@/types/annotation'
+import type { Annotation } from '@/types/annotation'
 import '@/types/FoliateView'
 import { BookOpen, FileText, List, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+
+const DRAW_FUNCTIONS: Record<string, (rects: DOMRect[] | DOMRectList, options?: Record<string, unknown>) => SVGElement> = {
+  highlight: Overlayer.highlight,
+  underline: Overlayer.underline,
+  strikethrough: Overlayer.strikethrough,
+  squiggly: Overlayer.squiggly,
+  outline: Overlayer.outline,
+}
 
 interface Book {
   id: string
@@ -51,6 +61,7 @@ export default function ReadPage() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const setViewRef = useReaderStore((s) => s.setViewRef)
+  const setLocation = useReaderStore((s) => s.setLocation)
   const setTitleStore = useReaderStore((s) => s.setTitle)
 
   const filename = file?.name ?? null
@@ -64,6 +75,9 @@ export default function ReadPage() {
     updateAnnotation,
     deleteAnnotation,
   } = useAnnotations({ bookId })
+
+  const annotationsRef = useRef(annotations)
+  annotationsRef.current = annotations
 
   useEffect(() => {
     fetch('/data/books.json')
@@ -346,6 +360,29 @@ export default function ReadPage() {
           onViewReady={(view) => {
             setViewRef(view)
             viewRef.current = view
+
+            view.addEventListener('draw-annotation', ((e: CustomEvent) => {
+              const { draw, annotation } = e.detail as { draw?: (fn: Function, opts: Record<string, unknown>) => void; annotation?: Annotation }
+              if (typeof draw !== 'function') return
+              const drawFn = DRAW_FUNCTIONS[annotation?.type ?? ''] ?? Overlayer.highlight
+              draw(drawFn, { color: annotation?.color })
+            }) as EventListener)
+
+            const restoreAnnotations = () => {
+              for (const ann of annotationsRef.current) {
+                if (ann.value) {
+                  view.addAnnotation({
+                    value: ann.value,
+                    type: ann.type,
+                    color: ann.color,
+                  }).catch(() => {})
+                }
+              }
+            }
+
+            restoreAnnotations()
+
+            view.addEventListener('create-overlay', restoreAnnotations as EventListener)
           }}
           onRelocate={handleRelocate}
           onTextSelection={handleTextSelection}
