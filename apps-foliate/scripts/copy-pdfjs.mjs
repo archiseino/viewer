@@ -29,14 +29,28 @@ mkdirSync(dest, { recursive: true });
 
 const buildDir = resolve(pdfjsDist, 'legacy', 'build');
 
-copyFileSync(
-  resolve(buildDir, 'pdf.worker.mjs'),
-  resolve(dest, 'pdf.worker.mjs'),
-);
+copyFileSync(resolve(buildDir, 'pdf.worker.mjs'), resolve(dest, 'pdf.worker.mjs'));
 console.log('  ✓ pdf.worker.mjs');
 
 copyFileSync(resolve(buildDir, 'pdf.mjs'), resolve(dest, 'pdf.mjs'));
 console.log('  ✓ pdf.mjs');
+
+for (const file of ['pdf.worker.mjs.map', 'pdf.mjs.map']) {
+  const src = resolve(buildDir, file);
+  if (existsSync(src)) {
+    copyFileSync(src, resolve(dest, file));
+    console.log(`  ✓ ${file}`);
+  }
+}
+
+const foliateVendor = resolve(root, '../packages/foliate-js/vendor/pdfjs');
+for (const file of ['annotation_layer_builder.css', 'text_layer_builder.css']) {
+  const src = resolve(foliateVendor, file);
+  if (existsSync(src)) {
+    copyFileSync(src, resolve(dest, file));
+    console.log(`  ✓ ${file}`);
+  }
+}
 
 for (const dir of ['cmaps', 'standard_fonts']) {
   const srcDir = resolve(pdfjsDist, dir);
