@@ -13,19 +13,25 @@ declare global {
     goTo: (target: unknown) => Promise<unknown>;
     goToFraction: (frac: number) => Promise<void>;
     goToTextStart: () => Promise<void>;
-    showAnnotation: (annotation: { value: string }) => Promise<void>;
+    showAnnotation: (annotation: { value: string | number }) => Promise<void>;
     addAnnotation: (annotation: {
-      value: string;
+      value: string | number;
       type?: string;
       color?: string;
     }) => Promise<void>;
-    deleteAnnotation: (annotation: { value: string }) => void;
+    deleteAnnotation: (annotation: { value: string | number }) => void;
     select: (target: unknown) => Promise<void>;
     deselect: () => void;
     getCFI: (index: number, range: Range) => string;
     book: { toc?: TocItem[]; metadata?: { title?: string } };
-    renderer: {
-      getContents?: () => { doc?: Document; index?: number }[];
+    renderer: HTMLElement & {
+      getContents?: () => ContentItem[];
     };
   }
+}
+
+export interface ContentItem {
+  doc?: Document
+  index?: number
+  overlayer?: import('foliate-js/overlayer.js').Overlayer
 }

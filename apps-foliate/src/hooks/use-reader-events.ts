@@ -5,12 +5,21 @@ import { useShallow } from 'zustand/react/shallow'
 import { useReaderStore } from '@/store/reader-store'
 import { useSettingsStore } from '@/store/settings-store'
 import { injectTheme } from '@/services/theme-css'
+import type { SerializedRect } from '@/types/annotation'
 import '@/types/FoliateView'
 
 function attachSelectionListener(
   view: FoliateView,
   doc: Document,
-  onTextSelection?: (state: { text: string; rects: DOMRect[]; bounds: DOMRect; cfi?: string } | null) => void
+  onTextSelection?: (state: {
+    text: string
+    rects: DOMRect[]
+    bounds: DOMRect
+    cfi?: string
+    pageIndex?: number
+    localRects?: SerializedRect[]
+    range?: Range
+  } | null) => void
 ) {
   const handler = () => {
     const sel = doc.defaultView?.getSelection()
@@ -42,12 +51,22 @@ function attachSelectionListener(
     const maxBottom = Math.max(...viewportRects.map(r => r.bottom))
     const bounds = new DOMRect(minX, minY, maxRight - minX, maxBottom - minY)
 
-    // Find the section index for this document and generate a precise CFI
+    // Find the section index for this document
     const contents = view.renderer?.getContents?.() ?? []
     const content = contents.find(c => c.doc === doc)
-    const cfi = content?.index != null ? view.getCFI(content.index, range) : undefined
+    const pageIndex = content?.index
 
-    onTextSelection?.({ text, rects: viewportRects, bounds, cfi })
+    // Store iframe-local rects before viewport conversion (for PDF overlay restore)
+    const localRects: SerializedRect[] = rects.map(r => ({
+      left: r.left, top: r.top, right: r.right,
+      bottom: r.bottom, width: r.width, height: r.height,
+    }))
+
+    // Only generate CFI for EPUB (paginator), not PDF (fixed-layout)
+    const isPDF = view.renderer?.tagName === 'foliate-fxl'
+    const cfi = !isPDF && pageIndex != null ? view.getCFI(pageIndex, range) : undefined
+
+    onTextSelection?.({ text, rects: viewportRects, bounds, cfi, pageIndex, localRects, range })
   }
 
   doc.addEventListener('mouseup', handler)
@@ -57,7 +76,15 @@ function attachSelectionListener(
 export function useReaderEvents(
   onRelocate?: (loc: unknown) => void,
   onAnnotation?: (type: string, detail: unknown) => void,
-  onTextSelection?: (state: { text: string; rects: DOMRect[]; bounds: DOMRect; cfi?: string } | null) => void,
+  onTextSelection?: (state: {
+    text: string
+    rects: DOMRect[]
+    bounds: DOMRect
+    cfi?: string
+    pageIndex?: number
+    localRects?: SerializedRect[]
+    range?: Range
+  } | null) => void,
 ) {
   const view = useReaderStore((s) => s.viewRef)
   const setLocation = useReaderStore((s) => s.setLocation)

@@ -11,14 +11,24 @@ export interface PDFLocation {
   rects: { left: number; top: number; right: number; bottom: number }[]
 }
 
+export interface SerializedRect {
+  left: number
+  top: number
+  right: number
+  bottom: number
+  width: number
+  height: number
+}
+
 export interface Annotation {
   id: string
   bookId: string // unique book identifier (file name or hash)
   type: AnnotationType
   color: string // hex color for the highlight
-  value: string // serialized location (CFI for EPUB, JSON for PDF)
+  value: string | number // CFI for EPUB, page index for PDF
   text: string // selected text excerpt (for preview)
   note?: string // markdown note content
+  rects?: SerializedRect[] // page-relative rects for PDF overlay restore
   createdAt: number // timestamp
   updatedAt: number // timestamp
 }
@@ -63,9 +73,12 @@ export function deserializePDFLocation(value: string): PDFLocation | null {
 }
 
 // Check if value is a CFI (EPUB) or PDF location
-export function isEPUBLocation(value: string): boolean {
-  // CFI starts with 'epubcfi://'
-  return value.startsWith('epubcfi://')
+export function isEPUBLocation(value: string | number): boolean {
+  return typeof value === 'string' && value.startsWith('epubcfi://')
+}
+
+export function isPDFPage(value: string | number): boolean {
+  return typeof value === 'number' || /^\d+$/.test(String(value))
 }
 
 // Helper to extract text excerpt (truncate to max length)

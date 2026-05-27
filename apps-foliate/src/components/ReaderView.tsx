@@ -13,7 +13,7 @@ interface ReaderViewProps {
   onViewReady?: (view: FoliateView) => void
   onRelocate?: (loc: unknown) => void
   onAnnotation?: (type: string, detail: unknown) => void
-  onTextSelection?: (state: { text: string; rects: DOMRect[]; bounds: DOMRect } | null) => void
+  onTextSelection?: (state: { text: string; rects: DOMRect[]; bounds: DOMRect; cfi?: string; pageIndex?: number } | null) => void
 }
 
 export function ReaderView({

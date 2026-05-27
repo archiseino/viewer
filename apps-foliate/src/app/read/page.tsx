@@ -11,7 +11,7 @@ import { useReaderStore } from '@/store/reader-store'
 import { useProgress } from '@/hooks/use-progress'
 import { useAnnotations } from '@/hooks/use-annotations'
 import { createBookId } from '@/store/annotation-store'
-import type { AnnotationType } from '@/types/annotation'
+import type { AnnotationType, SerializedRect } from '@/types/annotation'
 import type { Annotation } from '@/types/annotation'
 import '@/types/FoliateView'
 import { BookOpen, FileText, List, Settings } from 'lucide-react'
@@ -48,11 +48,15 @@ export default function ReadPage() {
     rects: DOMRect[]
     bounds: DOMRect
     cfi?: string
+    pageIndex?: number
+    localRects?: SerializedRect[]
+    range?: Range
   } | null>(null)
   const [noteDialogState, setNoteDialogState] = useState<{
     open: boolean
     text: string
     cfi?: string
+    pageIndex?: number
     annotationId?: string
     existingNote?: string
   }>({ open: false, text: '' })
@@ -65,6 +69,7 @@ export default function ReadPage() {
   const setTitleStore = useReaderStore((s) => s.setTitle)
 
   const filename = file?.name ?? null
+  const isPDF = file?.name?.toLowerCase().endsWith('.pdf') ?? false
   const { lastLocation, saveProgress } = useProgress(filename)
 
   // Book ID for annotations
@@ -132,8 +137,15 @@ export default function ReadPage() {
 
   // Handle text selection from ReaderView
   const handleTextSelection = useCallback(
-    (state: { text: string; rects: DOMRect[]; bounds: DOMRect; cfi?: string } | null) => {
-      console.log('[ReadPage] handleTextSelection:', state)
+    (state: {
+      text: string
+      rects: DOMRect[]
+      bounds: DOMRect
+      cfi?: string
+      pageIndex?: number
+      localRects?: SerializedRect[]
+      range?: Range
+    } | null) => {
       if (state) {
         setToolbarState({
           position: { x: state.bounds.x, y: state.bounds.y },
@@ -141,6 +153,9 @@ export default function ReadPage() {
           rects: state.rects,
           bounds: state.bounds,
           cfi: state.cfi,
+          pageIndex: state.pageIndex,
+          localRects: state.localRects,
+          range: state.range,
         })
       } else {
         // Don't close if user just clicked - wait for explicit close
@@ -154,31 +169,47 @@ export default function ReadPage() {
     async (type: AnnotationType, color: string) => {
       if (!viewRef.current || !toolbarState) return
 
-      const value = toolbarState.cfi ?? ''
+      const view = viewRef.current
+      if (!view) return
 
-      // Add to store
-      addAnnotation({
-        type,
-        color,
-        text: toolbarState.text,
-        value,
-      })
-
-      // Add to view (this creates the visual overlay)
-      if (value) {
-        try {
-          await viewRef.current.addAnnotation({
-            value,
+      if (isPDF && toolbarState.pageIndex != null && toolbarState.range) {
+        // PDF path: direct overlayer rendering with live DOM Range
+        const contents = view.renderer.getContents?.() ?? []
+        const content = contents.find(c => c.index === toolbarState.pageIndex)
+        if (content?.overlayer) {
+          const annotation = addAnnotation({
             type,
+            color,
+            text: toolbarState.text,
+            value: toolbarState.pageIndex,
+            rects: toolbarState.localRects,
           })
-        } catch (err) {
-          console.error('Failed to add annotation to view:', err)
+          if (annotation) {
+            const drawFn = DRAW_FUNCTIONS[type] ?? Overlayer.highlight
+            content.overlayer.add(annotation.id, toolbarState.range, drawFn, { color })
+          }
+        }
+      } else {
+        // EPUB path: uses foliate-view's CFI-based system
+        const value: string = toolbarState.cfi ?? ''
+        addAnnotation({
+          type,
+          color,
+          text: toolbarState.text,
+          value,
+        })
+        if (value) {
+          try {
+            await view.addAnnotation({ value, type })
+          } catch (err) {
+            console.error('Failed to add annotation to view:', err)
+          }
         }
       }
 
       setToolbarState(null)
     },
-    [toolbarState, addAnnotation]
+    [toolbarState, addAnnotation, isPDF]
   )
 
   // Handle add note from toolbar
@@ -188,6 +219,7 @@ export default function ReadPage() {
       open: true,
       text: toolbarState.text,
       cfi: toolbarState.cfi,
+      pageIndex: toolbarState.pageIndex,
     })
     setToolbarState(null)
   }, [toolbarState])
@@ -202,39 +234,47 @@ export default function ReadPage() {
     async (note: string) => {
       if (!noteDialogState.text || !viewRef.current) return
 
-      const value = noteDialogState.cfi ?? ''
-
-      addAnnotation({
-        type: 'highlight',
-        color: '#FFEB3B',
-        text: noteDialogState.text,
-        value,
-        note,
-      })
-
-      if (value) {
-        try {
-          await viewRef.current.addAnnotation({
-            value,
-            type: 'highlight',
-          })
-        } catch (err) {
-          console.error('Failed to add note annotation:', err)
+      if (isPDF && noteDialogState.pageIndex != null) {
+        addAnnotation({
+          type: 'highlight',
+          color: '#FFEB3B',
+          text: noteDialogState.text,
+          value: noteDialogState.pageIndex,
+          note,
+        })
+        // Note dialog doesn't have the live Range, so the overlay
+        // will be restored via create-overlay with stored rects
+      } else {
+        const value: string = noteDialogState.cfi ?? ''
+        addAnnotation({
+          type: 'highlight',
+          color: '#FFEB3B',
+          text: noteDialogState.text,
+          value,
+          note,
+        })
+        if (value) {
+          try {
+            await viewRef.current.addAnnotation({ value, type: 'highlight' })
+          } catch (err) {
+            console.error('Failed to add note annotation:', err)
+          }
         }
       }
 
       setNoteDialogState({ open: false, text: '' })
     },
-    [noteDialogState, addAnnotation]
+    [noteDialogState, addAnnotation, isPDF]
   )
 
   // Handle annotation edit (update note)
   const handleAnnotationEdit = useCallback(
-    (annotation: { id: string; note?: string; text: string; value?: string }) => {
+    (annotation: { id: string; note?: string; text: string; value?: string | number; rects?: SerializedRect[] }) => {
       setNoteDialogState({
         open: true,
         text: annotation.text,
-        cfi: annotation.value,
+        cfi: typeof annotation.value === 'number' ? undefined : annotation.value,
+        pageIndex: typeof annotation.value === 'number' ? annotation.value : undefined,
         annotationId: annotation.id,
         existingNote: annotation.note,
       })
@@ -244,28 +284,59 @@ export default function ReadPage() {
 
   // Handle annotation delete
   const handleAnnotationDelete = useCallback(
-    (annotation: { id: string; value: string }) => {
+    (annotation: { id: string; value: string | number; rects?: SerializedRect[] }) => {
       // Remove from view
-      if (viewRef.current && annotation.value) {
-        viewRef.current.deleteAnnotation({ value: annotation.value })
+      if (viewRef.current && annotation.value !== '' && annotation.value != null) {
+        if (isPDF && typeof annotation.value === 'number') {
+          const contents = viewRef.current.renderer.getContents?.() ?? []
+          const content = contents.find(c => c.index === annotation.value)
+          content?.overlayer?.remove(annotation.id)
+        } else {
+          viewRef.current.deleteAnnotation({ value: annotation.value })
+        }
       }
       // Remove from store
       deleteAnnotation(annotation.id)
     },
-    [deleteAnnotation]
+    [deleteAnnotation, isPDF]
   )
 
   // Handle annotation navigation
   const handleAnnotationNavigate = useCallback(
-    async (annotation: { value: string }) => {
-      if (!viewRef.current || !annotation.value) return
-      try {
-        await viewRef.current.showAnnotation({ value: annotation.value })
-      } catch (err) {
-        console.error('Failed to navigate to annotation:', err)
+    async (annotation: Annotation) => {
+      if (!viewRef.current || annotation.value === '' || annotation.value == null) return
+
+      if (isPDF && typeof annotation.value === 'number') {
+        await viewRef.current.goTo(annotation.value)
+        // After navigation, restore overlay from stored rects
+        if (annotation.rects) {
+          const contents = viewRef.current.renderer.getContents?.() ?? []
+          const content = contents.find(c => c.index === annotation.value)
+          if (content?.overlayer) {
+            const fakeRange = {
+              getClientRects: () =>
+                annotation.rects!.map(r => new DOMRect(r.left, r.top, r.width, r.height)),
+              getBoundingClientRect: () => {
+                const left = Math.min(...annotation.rects!.map(r => r.left))
+                const top = Math.min(...annotation.rects!.map(r => r.top))
+                const right = Math.max(...annotation.rects!.map(r => r.right))
+                const bottom = Math.max(...annotation.rects!.map(r => r.bottom))
+                return new DOMRect(left, top, right - left, bottom - top)
+              },
+            }
+            const drawFn = DRAW_FUNCTIONS[annotation.type] ?? Overlayer.highlight
+            content.overlayer.add(annotation.id, fakeRange, drawFn, { color: annotation.color })
+          }
+        }
+      } else {
+        try {
+          await viewRef.current.showAnnotation({ value: annotation.value })
+        } catch (err) {
+          console.error('Failed to navigate to annotation:', err)
+        }
       }
     },
-    []
+    [isPDF]
   )
 
   if (!file) {
@@ -369,8 +440,29 @@ export default function ReadPage() {
             }) as EventListener)
 
             const restoreAnnotations = () => {
+              const isPDF = file?.name?.toLowerCase().endsWith('.pdf') ?? false
               for (const ann of annotationsRef.current) {
-                if (ann.value) {
+                if (ann.value === '' || ann.value == null) continue
+
+                if (isPDF && ann.rects && typeof ann.value === 'number') {
+        const contents = view.renderer.getContents?.() ?? []
+                  const content = contents.find(c => c.index === ann.value)
+                  if (content?.overlayer) {
+                    const fakeRange = {
+                      getClientRects: () =>
+                        ann.rects!.map(r => new DOMRect(r.left, r.top, r.width, r.height)),
+                      getBoundingClientRect: () => {
+                        const left = Math.min(...ann.rects!.map(r => r.left))
+                        const top = Math.min(...ann.rects!.map(r => r.top))
+                        const right = Math.max(...ann.rects!.map(r => r.right))
+                        const bottom = Math.max(...ann.rects!.map(r => r.bottom))
+                        return new DOMRect(left, top, right - left, bottom - top)
+                      },
+                    }
+                    const drawFn = DRAW_FUNCTIONS[ann.type] ?? Overlayer.highlight
+                    content.overlayer.add(ann.id, fakeRange, drawFn, { color: ann.color })
+                  }
+                } else {
                   view.addAnnotation({
                     value: ann.value,
                     type: ann.type,
@@ -380,9 +472,8 @@ export default function ReadPage() {
               }
             }
 
-            restoreAnnotations()
-
             view.addEventListener('create-overlay', restoreAnnotations as EventListener)
+            restoreAnnotations()
           }}
           onRelocate={handleRelocate}
           onTextSelection={handleTextSelection}

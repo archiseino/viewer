@@ -41,7 +41,9 @@ export function useAnnotations(options: UseAnnotationsOptions = {}) {
   const annotationsBySection = useMemo(() => {
     const groups: Record<string, Annotation[]> = {}
     for (const annotation of annotations) {
-      const section = annotation.value.split(':')[1] ?? 'unknown'
+      const section = typeof annotation.value === 'string'
+        ? annotation.value.split(':')[1] ?? 'unknown'
+        : String(annotation.value)
       if (!groups[section]) groups[section] = []
       groups[section].push(annotation)
     }
