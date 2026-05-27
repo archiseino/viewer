@@ -87,8 +87,8 @@ export function ReaderSidebar({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value='contents' className='flex-1 flex flex-col m-0'>
-            <ScrollArea className='flex-1 px-4 py-4'>
+          <TabsContent value='contents' className='flex-1 flex flex-col m-0 min-h-0'>
+            <ScrollArea className='flex-1 px-4 py-4 min-h-0'>
               <nav className='space-y-0.5'>
                 {toc?.map((item, i) => (
                   <TocItem
@@ -129,7 +129,7 @@ export function ReaderSidebar({
             </div>
           </TabsContent>
 
-          <TabsContent value='annotations' className='flex-1 flex flex-col m-0'>
+          <TabsContent value='annotations' className='flex-1 flex flex-col m-0 min-h-0'>
             <AnnotationsList
               annotations={annotations}
               onNavigate={handleAnnotationClick}
@@ -232,7 +232,7 @@ function AnnotationsList({
       </div>
 
       {/* List */}
-      <ScrollArea className='flex-1'>
+      <ScrollArea className='flex-1 min-h-0'>
         <div className='p-2 space-y-2'>
           {filteredAnnotations.map((annotation) => (
             <AnnotationItem

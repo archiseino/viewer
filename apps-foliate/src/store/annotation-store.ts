@@ -111,6 +111,5 @@ export const useAnnotationStore = create<AnnotationStore>()(
 
 // Helper to create a book ID from file
 export function createBookId(file: File): string {
-  // Use file name + last modified as unique identifier
-  return `${file.name}-${file.lastModified}`
+  return file.name
 }
