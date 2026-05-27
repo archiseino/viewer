@@ -4,17 +4,26 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
-const pdfjsDist = resolve(root, '../node_modules/pdfjs-dist');
-const dest = resolve(root, 'public/vendor/pdfjs');
 
-if (!existsSync(pdfjsDist)) {
+const paths = [
+  resolve(root, '../packages/foliate-js/node_modules/pdfjs-dist'),
+  resolve(root, '../node_modules/pdfjs-dist'),
+  resolve(root, 'node_modules/pdfjs-dist'),
+];
+const pdfjsDist = paths.find(existsSync);
+
+if (!pdfjsDist) {
   console.error(
-    '✖ pdfjs-dist not found at',
-    pdfjsDist,
+    '✖ pdfjs-dist not found.',
+    '\n  Looked in:\n    -',
+    paths.join('\n    - '),
     '\n  Make sure dependencies are installed (pnpm install)',
   );
   process.exit(1);
 }
+console.log('  ✓ pdfjs-dist found at', pdfjsDist);
+
+const dest = resolve(root, 'public/vendor/pdfjs');
 
 mkdirSync(dest, { recursive: true });
 

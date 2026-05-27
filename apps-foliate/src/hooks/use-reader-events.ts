@@ -5,12 +5,88 @@ import { useShallow } from 'zustand/react/shallow'
 import { useReaderStore } from '@/store/reader-store'
 import { useSettingsStore } from '@/store/settings-store'
 import { injectTheme } from '@/services/theme-css'
+import type { SerializedRect } from '@/types/annotation'
 import '@/types/FoliateView'
 
-export function useReaderEvents(
-  view: FoliateView | null,
-  onRelocate?: (loc: unknown) => void,
+function attachSelectionListener(
+  view: FoliateView,
+  doc: Document,
+  onTextSelection?: (state: {
+    text: string
+    rects: DOMRect[]
+    bounds: DOMRect
+    cfi?: string
+    pageIndex?: number
+    localRects?: SerializedRect[]
+    range?: Range
+  } | null) => void
 ) {
+  const handler = () => {
+    const sel = doc.defaultView?.getSelection()
+    if (!sel || sel.isCollapsed) return
+    const text = sel.toString().trim()
+    if (!text) return
+    const range = sel.getRangeAt(0)
+    const rects = Array.from(range.getClientRects())
+    if (rects.length === 0) return
+
+    const iframe = doc.defaultView?.frameElement as HTMLElement | null
+    if (!iframe) return
+    const iframeRect = iframe.getBoundingClientRect()
+
+    // Account for CSS transform scale on the iframe (used by FixedLayout for PDF zoom)
+    const scaleX = iframeRect.width / iframe.clientWidth
+    const scaleY = iframeRect.height / iframe.clientHeight
+
+    const viewportRects = rects.map(r => new DOMRect(
+      r.x * scaleX + iframeRect.left,
+      r.y * scaleY + iframeRect.top,
+      r.width * scaleX,
+      r.height * scaleY
+    ))
+
+    const minX = Math.min(...viewportRects.map(r => r.x))
+    const minY = Math.min(...viewportRects.map(r => r.y))
+    const maxRight = Math.max(...viewportRects.map(r => r.right))
+    const maxBottom = Math.max(...viewportRects.map(r => r.bottom))
+    const bounds = new DOMRect(minX, minY, maxRight - minX, maxBottom - minY)
+
+    // Find the section index for this document
+    const contents = view.renderer?.getContents?.() ?? []
+    const content = contents.find(c => c.doc === doc)
+    const pageIndex = content?.index
+
+    // Store iframe-local rects before viewport conversion (for PDF overlay restore)
+    const localRects: SerializedRect[] = rects.map(r => ({
+      left: r.left, top: r.top, right: r.right,
+      bottom: r.bottom, width: r.width, height: r.height,
+    }))
+
+    // Only generate CFI for EPUB (paginator), not PDF (fixed-layout)
+    const isPDF = view.renderer?.tagName === 'foliate-fxl'
+    const cfi = !isPDF && pageIndex != null ? view.getCFI(pageIndex, range) : undefined
+
+    onTextSelection?.({ text, rects: viewportRects, bounds, cfi, pageIndex, localRects, range })
+  }
+
+  doc.addEventListener('mouseup', handler)
+  doc.addEventListener('touchend', handler)
+}
+
+export function useReaderEvents(
+  onRelocate?: (loc: unknown) => void,
+  onAnnotation?: (type: string, detail: unknown) => void,
+  onTextSelection?: (state: {
+    text: string
+    rects: DOMRect[]
+    bounds: DOMRect
+    cfi?: string
+    pageIndex?: number
+    localRects?: SerializedRect[]
+    range?: Range
+  } | null) => void,
+) {
+  const view = useReaderStore((s) => s.viewRef)
   const setLocation = useReaderStore((s) => s.setLocation)
   const setToc = useReaderStore((s) => s.setToc)
   const settings = useSettingsStore(
@@ -34,17 +110,31 @@ export function useReaderEvents(
 
     const handleLoad = (e: CustomEvent) => {
       const doc = e.detail.doc as Document
-      if (doc) injectTheme(doc, settings)
+      if (doc) {
+        injectTheme(doc, settings)
+        attachSelectionListener(view, doc, onTextSelection)
+      }
+    }
+
+    const handleShowAnnotation = (e: CustomEvent) => {
+      onAnnotation?.('show', e.detail)
     }
 
     view.addEventListener('relocate', handleRelocate as EventListener)
     view.addEventListener('load', handleLoad as EventListener)
+    view.addEventListener('show-annotation', handleShowAnnotation as EventListener)
 
     if (view.book?.toc) setToc(view.book.toc)
+
+    // Attach listeners to any already-loaded content
+    for (const { doc } of view.renderer?.getContents?.() ?? []) {
+      if (doc) attachSelectionListener(view, doc, onTextSelection)
+    }
 
     return () => {
       view.removeEventListener('relocate', handleRelocate as EventListener)
       view.removeEventListener('load', handleLoad as EventListener)
+      view.removeEventListener('show-annotation', handleShowAnnotation as EventListener)
     }
-  }, [view, settings])
+  }, [view, settings, onAnnotation, onTextSelection])
 }

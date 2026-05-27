@@ -12,9 +12,18 @@ interface ReaderViewProps {
   lastLocation?: unknown
   onViewReady?: (view: FoliateView) => void
   onRelocate?: (loc: unknown) => void
+  onAnnotation?: (type: string, detail: unknown) => void
+  onTextSelection?: (state: { text: string; rects: DOMRect[]; bounds: DOMRect; cfi?: string; pageIndex?: number } | null) => void
 }
 
-export function ReaderView({ file, lastLocation, onViewReady, onRelocate }: ReaderViewProps) {
+export function ReaderView({
+  file,
+  lastLocation,
+  onViewReady,
+  onRelocate,
+  onAnnotation,
+  onTextSelection,
+}: ReaderViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<FoliateView | null>(null)
 
@@ -27,7 +36,7 @@ export function ReaderView({ file, lastLocation, onViewReady, onRelocate }: Read
     }))
   )
 
-  useReaderEvents(viewRef.current, onRelocate)
+  useReaderEvents(onRelocate, onAnnotation, onTextSelection)
 
   useEffect(() => {
     let view: FoliateView | null = null
@@ -111,7 +120,7 @@ export function ReaderView({ file, lastLocation, onViewReady, onRelocate }: Read
   return (
     <div
       ref={containerRef}
-      className='h-full w-full outline-none'
+      className='h-full w-full outline-none relative'
       tabIndex={0}
     />
   )
