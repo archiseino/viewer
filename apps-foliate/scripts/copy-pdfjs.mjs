@@ -7,7 +7,7 @@ const root = resolve(__dirname, '..');
 
 const paths = [
   resolve(root, '../packages/foliate-js/node_modules/pdfjs-dist'),
-  resolve(root, '../../node_modules/pdfjs-dist'),
+  resolve(root, '../node_modules/pdfjs-dist'),
   resolve(root, 'node_modules/pdfjs-dist'),
 ];
 const pdfjsDist = paths.find(existsSync);
