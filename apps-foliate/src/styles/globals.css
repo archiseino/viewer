@@ -2,6 +2,7 @@
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant sepia (&:is(.sepia *));
+@custom-variant green (&:is(.green *));
 
 :root {
   --background: oklch(1 0 0);
@@ -68,6 +69,28 @@
   --border: #d4caba;
   --input: #d4caba;
   --ring: #8b7355;
+}
+
+.green {
+  --background: #f0faf0;
+  --foreground: #1a3a1a;
+  --card: #f0faf0;
+  --card-foreground: #1a3a1a;
+  --popover: #f0faf0;
+  --popover-foreground: #1a3a1a;
+  --primary: #2d6a2d;
+  --primary-foreground: #f0faf0;
+  --secondary: #dce8dc;
+  --secondary-foreground: #1a3a1a;
+  --muted: #dce8dc;
+  --muted-foreground: #3a6a3a;
+  --accent: #dce8dc;
+  --accent-foreground: #1a3a1a;
+  --destructive: #c44a4a;
+  --destructive-foreground: #f0faf0;
+  --border: #c0d4c0;
+  --input: #c0d4c0;
+  --ring: #2d6a2d;
 }
 
 @theme inline {

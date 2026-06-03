@@ -1,1 +1,1 @@
-export type ColorScheme = 'light' | 'dark' | 'sepia' | 'system'
+export type ColorScheme = 'light' | 'dark' | 'sepia' | 'green' | 'system'
