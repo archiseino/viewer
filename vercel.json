@@ -1,4 +1,0 @@
-{
-  "buildCommand": "cd apps-foliate && node scripts/copy-pdfjs.mjs && next build",
-  "installCommand": "git submodule update --init --recursive && pnpm install"
-}

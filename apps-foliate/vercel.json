@@ -1,0 +1,4 @@
+{
+  "installCommand": "git -C .. submodule update --init --recursive && pnpm install",
+  "buildCommand": "node scripts/copy-pdfjs.mjs && next build"
+}
